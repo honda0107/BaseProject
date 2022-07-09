@@ -1,0 +1,5 @@
+; シーン
+[Scene]
+
+; 初期に読み込むシーン
+Start = "SceneShader"

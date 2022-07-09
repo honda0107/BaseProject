@@ -1,32 +1,24 @@
-# Prerequisites
-*.d
+# OS generated files #
+######################
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
+# folder #
+##########
+.cccc
+.build
+.vs
+x64
 
-# Precompiled Headers
-*.gch
-*.pch
+*.vcxproj.user
+imgui.ini
+data/Game.ini
+src/.clang-format
+tools/Setting.ini
 
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
-*.exe
-*.out
-*.app
+*.fbx

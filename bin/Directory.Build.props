@@ -1,0 +1,9 @@
+<Project>
+  <PropertyGroup>
+    <UseMsbuildResourceManager>false</UseMsbuildResourceManager>
+    <UseMultiToolTask>true</UseMultiToolTask> 
+    <EnforceProcessCountAcrossBuilds>true</EnforceProcessCountAcrossBuilds>
+    <!-- 10%-20% oversubscription is often beneficial -->
+    <CL_MPCount>20</CL_MPCount>
+  </PropertyGroup>
+</Project>

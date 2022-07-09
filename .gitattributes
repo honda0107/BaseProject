@@ -1,0 +1,13 @@
+﻿*       text=auto
+*.bat   text eol=crlf
+*.c     text eol=lf
+*.cpp   text eol=lf
+*.cxx   text eol=lf
+*.cc    text eol=lf
+*.hpp   text eol=lf
+*.h     text eol=lf
+*.hxx   text eol=lf
+*.inl   text eol=lf
+*.fx    text eol=lf
+*.hlsl  text eol=lf
+*.hlsii	text eol=lf

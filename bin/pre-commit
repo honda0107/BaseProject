@@ -1,0 +1,172 @@
+#!/bin/sh
+#
+# An example hook script to verify what is about to be committed.
+# Called by "git commit" with no arguments.  The hook should
+# exit with non-zero status after issuing an appropriate message if
+# it wants to stop the commit.
+#
+# To enable this hook, rename this file to "pre-commit".
+
+if git rev-parse --verify HEAD >/dev/null 2>&1
+then
+	against=HEAD
+else
+	# Initial commit: diff against an empty tree object
+	against=$(git hash-object -t tree /dev/null)
+fi
+
+# Redirect output to stderr.
+exec 1>&2
+
+#----------------------------------------------------------------
+# VisualStudio内のclag-formatのパスを検出
+#----------------------------------------------------------------
+vswhere_path="C:/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
+
+if [ ! -x "$vswhere_path" ]; then
+  echo VisualStudioがインストールされていません. ソースコード整形ができませんでした.
+  exit 1
+fi
+
+vs_community_path=$("$vswhere_path" -latest -property installationPath)
+
+
+vs_community_path=$("C:/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe" -latest -property installationPath)
+llvm_path=${vs_community_path}"\VC\Tools\Llvm\x64\bin"
+clang_format=${llvm_path}"\clang-format.exe"
+
+#----------------------------------------------------------------
+# VisualStudioがLLVM14に対応するまでの間の対処
+# ローカルのclang-format14でコンフィグファイルパス指定機能を利用
+#----------------------------------------------------------------
+root_dir=$(git rev-parse --show-toplevel)
+clang_format="${root_dir}/bin/clang-format.exe"
+
+#----------------------------------------------------------------
+# clang-formatが実行できるかどうかチェック
+#----------------------------------------------------------------
+if [ ! -x "$clang_format" ]; then
+
+  # もしVisualStudioのclang-formatが見つからなければパスが通っているclang-formatが使えるかチェック
+  if [ -x "clang_format.exe" ]; then
+    clang_format="clang_format.exe"
+  else
+    echo clang-formatが見つかりません.
+    exit 1
+  fi
+fi
+
+# バージョン表示
+echo $("${clang_format}" --version)
+
+#----------------------------------------------------------------
+# 変更されるすべてのファイルを対象に処理
+#----------------------------------------------------------------
+# 整形処理がされたかどうか
+auto_formatted=false
+
+# 日本語ファイル名をそのまま扱う
+git config --global core.quotepath false
+
+IFS=$'\n'			# スペースを含むファイルを誤検知しないように区切り文字を変更
+
+for file in $(git diff --cached --name-only | grep -E '\.(c|cpp|cxx|cc|hpp|h|hxx|inl)$')
+do
+  # ファイル名の先頭にある空白を除去
+  file=$(echo ${file} | sed 's/^[ \t]*//')
+
+  # 拡張子抽出
+  pure_file=$(echo ${file} | sed 's/"//g')	# ダブルクォートを外したファイル名
+  file_ext=${pure_file##*.}                 # 拡張子
+
+  # ファイル存在チェック
+  if [ ! -f $file ]; then
+    continue
+  fi
+
+  # 拡張子チェック
+  if [[ "c;cpp;cxx;cc;hpp;h;hxx;inl" =~ "$file_ext" ]]; then
+
+    # clang-format定義ファイルの階層に居るかチェック
+    can_format=false
+    
+    dir_name=$(dirname ${file})
+    if [ -e $dir_name"/.clang-format-reference" ]; then
+      can_format=true
+    fi    
+
+    while [ $dir_name != "." ]; do
+      dir_name=$(dirname ${dir_name})
+
+      if [ -e $dir_name"/.clang-format-reference" ]; then
+        can_format=true
+      fi
+    done
+    
+    # もし定義ファイルがなければ整形対象外
+    if [ $can_format == false ]; then
+      continue
+    fi
+
+    report=""
+    
+    # UTF-8でない場合はエラー
+    file_type=$("file" -b ${file})
+
+    if [[ ! $file_type =~ "UTF-8" ]]; then
+      if [[ ! $file_type =~ "ASCII text" ]]; then
+        echo "ERROR:" ${file} "はUTF-8ではありません. エンコードを修正してください."
+        echo $("file" -b ${file})
+        exit 1
+      fi
+    fi
+
+    temp_file=$(mktemp)
+
+    # UTF-8で BOMがついていなければ追加
+    if [[ $(head -c 3 $file) != $'\xef\xbb\xbf' ]]; then
+      
+      # ファイルにBOM追加
+      LC_ALL=C sed -e $'1s/^/\xef\xbb\xbf/' $file > $temp_file
+      mv $temp_file $file
+
+      report+="(BOM自動追加)"
+    fi
+
+    # 改行コードCRLFをLFに全変換
+    sed "s/\r//g" $file > $temp_file
+    mv $temp_file $file
+
+    # ファイル末尾に改行がない場合は追加
+    line="$(tail -n1 "${file}" | wc -l)"
+    if [ "${line}" -eq 0 ]; then
+
+      # ファイル末尾に改行を追加する
+      sed -e '${s/$/\n/}' -i "$file"
+
+      report+="(ファイル末尾に改行追加)"
+    fi
+
+    # 対象の拡張子のファイルにはclang-formatを実行
+    "$clang_format" -i -style=file:${root_dir}/src/.clang-format-reference "$file"
+
+    echo "[コード整形] ${file} success! ${report}"
+    auto_formatted=true
+  fi
+
+  # 反映
+  git add $file
+  
+done
+
+#----------------------------------------------------------------
+# コード整形の結果、差分がなくなってしまった場合はコミットをキャンセル
+#----------------------------------------------------------------
+if [ $auto_formatted == true ]; then
+  diff_list=$(git diff --cached --name-only)
+ 
+  if [ -z "$diff_list" ]; then
+    echo コード整形の結果、変更前と一致してコミット差分がなくなりました. コミットをキャンセルします.
+    exit 1
+  fi
+fi

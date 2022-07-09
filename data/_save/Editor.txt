@@ -1,0 +1,11 @@
+{
+    "editor_status_.get()": 3,
+    "inspector_size": {
+        "x": 197.0,
+        "y": 189.0
+    },
+    "object_detail_size": {
+        "x": 442.0,
+        "y": 491.0
+    }
+}
